@@ -1,0 +1,211 @@
+package com.siparis.sepetislem;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Service;
+import org.springframework.web.bind.annotation.*;
+
+import javax.persistence.*;
+import java.time.LocalDateTime;
+import java.util.List;
+
+@SpringBootApplication
+public class SepetIslemApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(SepetIslemApplication.class, args);
+	}
+}
+
+@MappedSuperclass
+@EntityListeners(AuditingEntityListener.class)
+abstract class BaseEntity {
+	@Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+	private Long id;
+
+	@CreatedDate
+	private LocalDateTime createdAt;
+
+	@LastModifiedDate
+	private LocalDateTime updatedAt;
+
+	// Getters and setters...
+}
+
+@Entity
+class Product extends BaseEntity {
+	private String name;
+	private Double price;
+	private Integer stock;
+
+	// Getters and setters...
+}
+
+@Entity
+class Customer extends BaseEntity {
+	private String name;
+	private String email;
+
+	// Getters and setters...
+}
+
+@Entity
+class Cart extends BaseEntity {
+	@ManyToOne
+	private Customer customer;
+	private Double totalPrice;
+	@OneToMany(mappedBy = "cart", cascade = CascadeType.ALL)
+	private List<CartItem> items;
+
+	// Getters and setters...
+}
+
+@Entity
+class CartItem extends BaseEntity {
+	@ManyToOne
+	private Cart cart;
+	@ManyToOne
+	private Product product;
+	private Integer quantity;
+	private Double price;
+
+	// Getters and setters...
+}
+
+@Entity
+class Order extends BaseEntity {
+	@ManyToOne
+	private Customer customer;
+	private Double totalPrice;
+	@OneToMany(mappedBy = "order", cascade = CascadeType.ALL)
+	private List<OrderItem> items;
+	private LocalDateTime createdAt;
+
+	// Getters and setters...
+}
+
+@Entity
+class OrderItem extends BaseEntity {
+	@ManyToOne
+	private Order order;
+	@ManyToOne
+	private Product product;
+	private Integer quantity;
+	private Double price;
+
+	// Getters and setters...
+}
+
+@Entity
+class ProductPriceHistory extends BaseEntity {
+	@ManyToOne
+	private Product product;
+	private Double price;
+	private LocalDateTime recordedAt;
+
+	// Getters and setters...
+}
+
+interface ProductRepository extends JpaRepository<Product, Long> {}
+interface CustomerRepository extends JpaRepository<Customer, Long> {}
+interface CartRepository extends JpaRepository<Cart, Long> {}
+interface OrderRepository extends JpaRepository<Order, Long> {}
+interface ProductPriceHistoryRepository extends JpaRepository<ProductPriceHistory, Long> {}
+
+@Service
+class EcommerceService {
+	private final ProductRepository productRepository;
+	private final CustomerRepository customerRepository;
+	private final CartRepository cartRepository;
+	private final OrderRepository orderRepository;
+	private final ProductPriceHistoryRepository priceHistoryRepository;
+
+	public EcommerceService(ProductRepository productRepository, CustomerRepository customerRepository, CartRepository cartRepository, OrderRepository orderRepository, ProductPriceHistoryRepository priceHistoryRepository) {
+		this.productRepository = productRepository;
+		this.customerRepository = customerRepository;
+		this.cartRepository = cartRepository;
+		this.orderRepository = orderRepository;
+		this.priceHistoryRepository = priceHistoryRepository;
+	}
+
+	// Service methods for CRUD operations and business logic...
+}
+
+@RestController
+@RequestMapping("/api")
+class EcommerceController {
+	private final EcommerceService ecommerceService;
+
+	public EcommerceController(EcommerceService ecommerceService) {
+		this.ecommerceService = ecommerceService;
+	}
+
+	@PostMapping("/customers")
+	public Customer addCustomer(@RequestBody Customer customer) {
+		return ecommerceService.addCustomer(customer);
+	}
+
+	@GetMapping("/products/{id}")
+	public Product getProduct(@PathVariable Long id) {
+		return ecommerceService.getProduct(id);
+	}
+
+	@PostMapping("/products")
+	public Product createProduct(@RequestBody Product product) {
+		return ecommerceService.createProduct(product);
+	}
+
+	@PutMapping("/products/{id}")
+	public Product updateProduct(@PathVariable Long id, @RequestBody Product product) {
+		return ecommerceService.updateProduct(id, product);
+	}
+
+	@DeleteMapping("/products/{id}")
+	public void deleteProduct(@PathVariable Long id) {
+		ecommerceService.deleteProduct(id);
+	}
+
+	@GetMapping("/carts/{customerId}")
+	public Cart getCart(@PathVariable Long customerId) {
+		return ecommerceService.getCart(customerId);
+	}
+
+	@PutMapping("/carts/{customerId}")
+	public Cart updateCart(@PathVariable Long customerId, @RequestBody Cart cart) {
+		return ecommerceService.updateCart(customerId, cart);
+	}
+
+	@DeleteMapping("/carts/{customerId}")
+	public void emptyCart(@PathVariable Long customerId) {
+		ecommerceService.emptyCart(customerId);
+	}
+
+	@PostMapping("/orders")
+	public Order placeOrder(@RequestBody Order order) {
+		return ecommerceService.placeOrder(order);
+	}
+
+	@GetMapping("/orders/{orderCode}")
+	public Order getOrderForCode(@PathVariable String orderCode) {
+		return ecommerceService.getOrderForCode(orderCode);
+	}
+
+	@GetMapping("/orders/customer/{customerId}")
+	public List<Order> getAllOrdersForCustomer(@PathVariable Long customerId) {
+		return ecommerceService.getAllOrdersForCustomer(customerId);
+	}
+
+	@PostMapping("/carts/{customerId}/items")
+	public Cart addProductToCart(@PathVariable Long customerId, @RequestBody CartItem cartItem) {
+		return ecommerceService.addProductToCart(customerId, cartItem);
+	}
+
+	@DeleteMapping("/carts/{customerId}/items/{itemId}")
+	public Cart removeProductFromCart(@PathVariable Long customerId, @PathVariable Long itemId) {
+		return ecommerceService.removeProductFromCart(customerId, itemId);
+	}
+}
